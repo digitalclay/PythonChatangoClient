@@ -1,3 +1,15 @@
+###############################################
+#PM Bot - Jon Rollins - J.p. - Digitalclay ####
+#This code and all code posted is in no way ###
+#to be takenn as serious. Thrown together #####
+#in about an hour as an example of how  #######
+#simple it can be to write a bot from scratch,#
+#without using exsiting libraries.This code ###
+#purposly didnt use classes ect. to keep code##
+#to a bare minimum. ###########################
+###############################################
+
+
 ###################
 ## Imports ########
 
@@ -11,19 +23,19 @@ import urllib.parse
 import socket
 from threading import Timer
 from threading import Thread
+import re
 
 
 ##################
 ## Variables #####
 
 auid = ''
-username = 'Mizukebot'
-password = ''
+username = 'mizukebot'
+password = 'password =/'
 host = 'c1.chatango.com'
 port = 5222;
 link = "http://chatango.com/login"
-friendList = set()
-blockList = set()
+
 
 
 
@@ -31,6 +43,7 @@ blockList = set()
 ## Connect To Pms ##
 
 def connect():
+    
     params = urllib.parse.urlencode({
             'user_id':username,
             'password':password,
@@ -69,57 +82,58 @@ def run():
     running = True
 
     while running:
-
-        msg = str(sock.recv(1024).decode("utf-8"))
+        if(writeLock == True):
+          print("[PM] Error : Can't read while writing to server!!! ")
+          continue
+        
+        msg = str(sock.recv(4096).decode("utf-8"))
         
         try:
             if msg.startswith("msg:"):
-              onMsgRcv(msg)
+              onMsgRcv(cleanMsg(msg))
               
             if msg.startswith("OK"):
               onConnectRcv()
-              print("[PMS] Input : "+msg)
               
             if msg.startswith("DENIED"):
               onConnectFailRcv()
-              print("[PMS] Input : "+msg)
               
             if msg.startswith("status:"):
               onStatusUpdateRcv(msg)
-              print("[PMS] Input : "+msg)
               
             if msg.startswith("idleupdate:"):
               onIdleUpdateRcv(msg)
-              print("[PMS] Input : "+msg)
               
             if msg.startswith("msgoff:"):
               onPmOfflineMsgRcv(msg)
-              print("[PMS] Input : "+msg)
               
             if msg.startswith("wl:"):
               onFriendListRcv(msg)
-              print("[PMS] Input : "+msg)
               
             if msg.startswith("wlonline:"):
               onFriendOnlineRcv(msg)
-              print("[PMS] Input : "+msg)
               
             if msg.startswith("wloffline:"):
               onFriendOfflineRcv(msg)
-              print("[PMS] Input : "+msg)
               
             if msg.startswith("block_list:"):
               onBlockListRCV(msg)
-              print("[PMS] Input : "+msg)
               
             if msg.startswith("kickingoff:"):
               onServerKickRcv(msg)
-              print("[PMS] Input : "+msg)
+
               
         except Exception:
             print(str(sys.exc_info()))
-            continue
+            pass
 
+
+def cleanMsg(msg):
+  msg = re.sub("<.*?>", "", msg)
+  msg = re.sub("â–“", "", msg)
+  msg = re.sub("â–’", "", msg) 
+  msg = msg.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&")
+  return msg
 
 ##############################
 ## Recieve Cmds From Server ##
@@ -134,6 +148,7 @@ def onMsgRcv(msg):
 
 #On Connect
 def onConnectRcv():
+  print("[PM] Connected to Pms ")
   if(running):
     sendWL()
     sendBlockList()
@@ -146,35 +161,40 @@ def onConnectFailRcv():
 
 #Status Update
 def onStatusUpdateRcv(msg):
-  pass
+  print("[PMS] Input : "+msg)
 
 #Idle Update
 def onIdleUpdateRcv(msg):
-  pass
+  print("[PMS] Input : "+msg)
 
 #PM Offline Msg
 def onPmOfflineMsgRcv(msg):
-  pass
+  print("[PMS] Input : "+msg)
 
 #Friend List
 def onFriendListRcv(msg):
-  pass
+  global friendList
+  friendList = msg.split(":")[1:][0::4]
+  print(friendList)
 
 #Friend Online
 def onFriendOnlineRcv(msg):
-  pass
+  print("[PMS] Input : "+msg)
 
 #Friend Offline
 def onFriendOfflineRcv(msg):
-  pass
+  print("[PMS] Input : "+msg)
 
 #Block List
 def onBlockListRCV(msg):
-  pass
+  global blockList
+  blockList = msg.split(":")[1:]
+  blockList[len(blockList)-1] = blockList[len(blockList)-1].split("\r")[0]
+  print(blockList)
 
 #Server Kick
 def onServerKickRcv(msg):
-  pass
+  print("[PMS] Input : "+msg)
 
 
 
@@ -183,10 +203,20 @@ def onServerKickRcv(msg):
 
 #Send
 def sendToServer(message , usePrint):
+  global writeLock
+  writeLock = True
   if(usePrint):
     print("[PMS] Output : "+str(message.encode()))
-  sock.send(str(message).encode())
-
+  try:
+    checkDone = sock.sendall(str(message).encode())
+    while(checkDone != None):
+      continue
+    writeLock = False
+  except Exception:
+    print("error in write")
+    writeLock = False
+    return
+      
 #Login
 def sendLogin(login):
   sendToServer(login+"\x00" , True)
@@ -236,7 +266,13 @@ def addFriend(user):
 ############################
 ## Check Bot Commands ######
 def checkCommands(sender,message):
-  pass
+  #example pm commands
+  if message.lower().startswith("hey"):
+    sendMsg(sender, "Hello "+sender+", how is life? ^.^")
+  if message.lower().startswith("blocks"):
+    sendMsg(sender,str(blockList))
+  if message.lower().startswith("friends"):
+    sendMsg(sender,str(friendList))
 
 
 

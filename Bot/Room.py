@@ -15,9 +15,9 @@
 
 import sys
 if sys.version_info[0] > 2:
-  import urllib.request as url
+  import urllib.request as urlreq
 else:
-  import urllib2 as url
+  import urllib2 as urlreq
 import urllib.request 
 import urllib.parse
 import socket
@@ -25,13 +25,17 @@ from threading import Timer
 from threading import Thread
 import random
 import re
+import time
+import winsound
+import json
+import datetime
 
 ##################
 ## Variables #####
 
 uid = ''
 username = 'mizukebot'
-password = 'password-_____________-'
+password = ''
 host = ''
 port = 5228;
 roomName = "digitalmasterminds69"
@@ -67,13 +71,61 @@ fontSize = "14";
 fontColor = "000";
 nameColor = "093";
 
+#################
+# Play Sound ####
+activesound = True
+def playSound(soundtype):
+  if activesound:
+    if soundtype=="msg":
+      return winsound.Beep(1000, 100)
+    elif soundtype=="error":
+      return winsound.Beep(1000, 300)
+    elif soundtype=="info":
+      return winsound.Beep(2000, 100)
+    else:
+      return print("[ERROR] SOUND ERROR")
+  else:
+    return 
 
 
-####################
-## Connect To Pms ##
+print("MizukeBot Version - 9.0.0 New Code Base")
+
+
+# Room Log
+filename = "roomlog.txt"
+roomlog =[]
+f = open(filename, 'r')
+print("[INFO]LOADING ROOMLOG")
+for name in f.readlines():
+  if len(name.strip())>0: roomlog.append(name.strip())
+f.close()
+
+
+ 
+##############################
+#BG Time Left Function
+##############################
+
+def getbgtime(name):
+    l1=str(name)[0]
+    l2=str(name)[1]
+    timeLeft=""
+    for text in urlreq.urlopen("http://st.chatango.com/profileimg/"+l1+"/"+l2+"/"+name+"/mod1.xml"):
+        text=text.decode("utf-8")
+        if "<d>" in text:
+            n=text.split("<d>")
+            n2=str(n[1]).split("</d>")
+            n3=n2[0]         
+            timeLeft=str(datetime.datetime.fromtimestamp(int(n3)).strftime('%m/%d/%Y'))
+    return timeLeft
+
+
+#####################
+## Connect To Room ##
 
 def connect():
 
+    setRandomFont(True)
 
     uid = genUID()
     print(uid)
@@ -159,67 +211,67 @@ def run():
         
         msg = str(sock.recv(1024).decode("utf-8"))
         
-        try:
-            if msg.startswith("b:"):
-              onMsgRcv(cleanMsg(msg))
+        #try:
+        if msg.startswith("b:"):
+          onMsgRcv(cleanMsg(msg))
 
-            if msg.startswith("ok:"):
-              onConnectRcv(msg)
-              
-            if msg.startswith("denied"):
-              onConnectFailRcv()
-              
-            if "inited" in msg:
-              onInitRcv(msg)
-              
-            if msg.startswith("n:"):
-              onCountRcv(msg)
-              
-            if msg.startswith("mods:"):
-              onModsRcv(msg)
-              
-            if msg.startswith("participant:0"):
-              onLeaveRcv(msg)
-              
-            if msg.startswith("participant:1"):
-              onJoinRcv(msg)
-              
-            if msg.startswith("g_participants:"):
-              onRoomNamesRcv(msg)
-              
-            if msg.startswith("blocked:"):
-              onBanRcv(msg)
-              
-            if msg.startswith("unblocked:"):
-              onUnbanRcv(msg)
+        if msg.startswith("ok:"):
+          onConnectRcv(msg)
+          
+        if msg.startswith("denied"):
+          onConnectFailRcv()
+          
+        if "inited" in msg:
+          onInitRcv(msg)
+          
+        if msg.startswith("n:"):
+          onCountRcv(msg)
+          
+        if msg.startswith("mods:"):
+          onModsRcv(msg)
+          
+        if msg.startswith("participant:0"):
+          onLeaveRcv(msg)
+          
+        if msg.startswith("participant:1"):
+          onJoinRcv(msg)
+          
+        if msg.startswith("g_participants:"):
+          onRoomNamesRcv(msg)
+          
+        if msg.startswith("blocked:"):
+          onBanRcv(msg)
+          
+        if msg.startswith("unblocked:"):
+          onUnbanRcv(msg)
 
-            if msg.startswith("i:"):
-              onPastMsgRcv(msg)
+        if msg.startswith("i:"):
+          onPastMsgRcv(msg)
 
-            if msg.startswith("blocklist:"):
-              onBlocklistRcv(msg)
+        if msg.startswith("blocklist:"):
+          onBlocklistRcv(msg)
 
-            if msg.startswith("delete:"):
-              onMsgDeleteRcv(msg)
+        if msg.startswith("delete:"):
+          onMsgDeleteRcv(msg)
 
-            if msg.startswith("show_fw:"):
-              onFloodWarningRcv(msg)
+        if msg.startswith("show_fw:"):
+          onFloodWarningRcv(msg)
 
-            if msg.startswith("show_tb:"):
-              onFloodBanRcv(msg)
+        if msg.startswith("show_tb:"):
+          onFloodBanRcv(msg)
 
-            if msg.startswith("tb:"):
-              onFloodBanRepeatRcv(msg)
+        if msg.startswith("tb:"):
+          onFloodBanRepeatRcv(msg)
 
-            if msg.startswith("premium:"):
-              onPremiumRcv(msg)
+        if msg.startswith("premium:"):
+          onPremiumRcv(msg)
 
-            if msg.startswith("deleteall:"):
-              onAllMsgDeleteRcv(msg)
+        if msg.startswith("deleteall:"):
+          onAllMsgDeleteRcv(msg)
 
-        except Exception:
-            print(str(sys.exc_info()))
-            continue
+        #except Exception:
+            #print(str(sys.exc_info()))
+            #continue
 
 
 
@@ -242,12 +294,28 @@ def cleanMsg(msg):
 
 #Msg
 def onMsgRcv(msg):
+
+  playSound("msg")
+  
   data = msg.split(":")
   sender=data[2]
-  message=data[len(data)-1]
-  print("[Room] MSG ("+sender+") : "+message)
-  checkCommands(sender,message)
+  message=data[10]
+  ip = ""
 
+  if username in mods:
+    roomlog.append("[%s][IP: %s] %s: %s" % (time.strftime("%d/%m/%y- %H:%M:%S", time.localtime(time.time())),data[7], sender.capitalize(), message))
+    print("[Room][%s][IP: %s] %s: %s" % (time.strftime("%d/%m/%y- %H:%M:%S", time.localtime(time.time())),data[7], sender.capitalize(), message))
+    ip = data[7]
+  else:
+    roomlog.append("[%s] %s: %s" % (time.strftime("%d/%m/%y- %H:%M:%S", time.localtime(time.time())) , sender.capitalize(), message))
+    print("[Room][%s] %s: %s" % (time.strftime("%d/%m/%y- %H:%M:%S", time.localtime(time.time())) , sender.capitalize(), message))
+    ip ="Not a mod -__-"
+    
+  f = open("roomlog.txt", "w")
+  f.write("\n".join(roomlog))
+  f.close()
+  
+  checkCommands(sender,message,ip)
 
 #On Connect
 def onConnectRcv(msg):
@@ -288,9 +356,10 @@ def onConnectFailRcv():
 
 #init
 def onInitRcv(msg):
-  getPremium()
-  getRoomUsers()
-  getBlockList()
+  Timer(2.0, getPremium).start()#stupid bugs....delay to avoid
+  Timer(3.0, getRoomUsers).start()#stupid bugs....delay to avoid
+  Timer(4.0, getBlockList).start()#stupid bugs....delay to avoid
+
 
 #Room count
 def onCountRcv(msg):
@@ -354,6 +423,7 @@ def onBlocklistRcv(msg):
   banList = []
   if ";" not in msg and ":" not in msg:
     print("[Room] BanList : "+str(banList))
+    banList.append("")
     return
   parts = msg.split(";")
   b = 0
@@ -429,8 +499,8 @@ def onAllMsgDeleteRcv(msg):
 def sendToServer(message , usePrint):
   global writeLock
   writeLock = True
-  if(usePrint):
-    print("[Room] Output : "+str(message.encode()))
+  #if(usePrint):
+    #print("[Room] Output : "+str(message.encode()))
   try:
     checkDone = sock.sendall(str(message).encode())
     while(checkDone != None):
@@ -446,11 +516,33 @@ def sendToServer(message , usePrint):
 def sendLogin():
   sendToServer("bauth:"+roomName+":"+ uid+":"+ username+":"+ password+"\x00" , True)
 
-#Message
+#Message######################################
 def sendMsg(msg):
-  message = "bmsg:tl2r:"+"<n"+nameColor+"/><f x"+fontSize+fontColor+"=\""+fontFace+"\">"+msg+"\r\n"
-  sendToServer(message, True)
+  message = ""
+  if getRandomFontMode() == True:
+    message = "bmsg:tl2r:"+"<n"+randColor()+"/><f x"+randSize()+randColor()+"=\""+randFace()+"\">"+msg+"\r\n"
+  else:
+    message = "bmsg:tl2r:"+"<n"+nameColor+"/><f x"+fontSize+fontColor+"=\""+fontFace+"\">"+msg+"\r\n"
+  sendToServer(message, False)
+
+def setRandomFont(mode):
+  global useRandFont
+  useRandFont = mode
   
+def getRandomFontMode():
+  return useRandFont
+
+def randColor():
+  return random.choice(["F9F","0CC","939","F66","303","F00","090","636","F60"])
+
+def randSize():
+  return str(random.randrange(11,16))
+
+def randFace():
+  return random.choice(["Arial","Arial Black","Bookman Old Style","comic","times","tahoma","palatino","georgia","times"])
+
+############################################
+
 #Ping
 def ping():
   sendToServer("\r\n", False)
@@ -485,11 +577,11 @@ def removeMod(name):
   sendToServer("removemod:"+name+"\r\n")
 
 #ban
-def ban(userid,ip,name):
+def ban(userID,ip,name):
   sendToServer("block:"+userID+":"+ip+":"+name+"\r\n")
 
 #unban  
-def unBan(userid,ip,name):
+def unBan(userID,ip,name):
   sendToServer("removeblock:"+userID+":"+ip+":"+name+"\r\n")
 
 #delete msg
@@ -505,30 +597,52 @@ def flag(msgID):
   sendToServer("g_flag:"+msgID+"\r\n")
 
 #clear chat
-def clearAllMsg(name):
+def clearAllMsg():
   sendToServer("clearall:\r\n")
 
 
 ############################
 ## Check Bot Commands ######
-def checkCommands(sender,message):
+def checkCommands(sender,message,ip):
+  message = re.sub('\x00', '', message)
+  print(message.split(" "))
+  cmd = ""
+  args = ""
+
+  if " " in message:
+    cmd = message.split(" ")[0]
+    args = message.split(" ")[1]
+  else:
+    cmd = message
+    args = ""
+
+  cmd = cmd.lower()
+  args = args.lower()
+  print("cmd: "+cmd+ " || Args : "+args)
   
-  #example commannds
+  #commannd list
   if message.lower().startswith("-cmd"):
-    sendMsg("My Example commands are  -mods , -count , -users , -bans , -quiet , -addmod , -removemod")
-  
+    sendMsg("My commands are  -mods , -count , -users , -bans , -quiet "
+            + ", -addmod , -removemod , -prof "
+            + ", -sound , -bgleft , -online , -myip , -ban , -unban")
+
+  #mods
   if message.lower().startswith("-mods"):
     sendMsg("Owner - "+ owner + " Mods - " + str(mods))
 
+  #count
   if message.lower().startswith("-count"):
     sendMsg("Room Count - "+str(count))
 
+  #users
   if message.lower().startswith("-users"):
     sendMsg("Users - "+str(users))
-    
+
+  #bans
   if message.lower().startswith("-bans"):
     sendMsg("Ban List - "+str(banList))
-    
+
+  #quiet
   if message.lower().startswith("-quiet"):
     if quiet == True :
       setQuiet(False)
@@ -536,11 +650,77 @@ def checkCommands(sender,message):
       setQuiet(True)
     sendMsg("Quiet - "+quiet)
 
+  #add Mod
   if message.lower().startswith("-addmod") and username == owner:
-    addMod(msg.split(" ")[1])
-    
+    addMod(message.split(" ")[1])
+
+  #remove mod
   if message.lower().startswith("-removemod") and username == owner:
-    removeMod(msg.split(" ")[1])
+    removeMod(message.split(" ")[1])
+
+  #sound
+  if message.lower().startswith("-sound") and sender.lower() == "digitalclay":
+    global activesound
+    if activesound == True:
+      activesound = False
+    else:
+      activesound = True
+    sendMsg("Sound set to : "+str(activesound))
+
+  #get bg time left
+  if message.lower().startswith("-bgleft") and args != "":
+    sendMsg('Your BG will end or has ended on : <FONT COLOR="#00ff00">'+getbgtime(message.split(" ")[1].lower())+"</FONT>")
+
+  #check if user is online
+  if message.lower().startswith("-online") and args != "":
+    offline = None
+    url = urlreq.urlopen("http://"+args+".chatango.com").read().decode()
+    if not "buyer" in url:
+      sendMsg(args+" does not exist on chatango.")
+    else:
+      url2 = urlreq.urlopen("http://"+args+".chatango.com").readlines()
+      for line in url2:
+        line = line.decode('utf-8')
+        if "leave a message for" in line.lower():
+          print(line)
+          offline = True
+      if offline:
+        sendMsg(args+" is <FONT COLOR=\"#ffd700\">Offline</font>")
+      if not offline:
+        sendMsg(args+" is <FONT COLOR=\"#ffd700\">Online</font>")
+
+
+  #get ip
+  if message.lower().startswith("-myip"):
+    if username in mods:
+      sendMsg("Your Ip is : "+ip)
+    else:
+      sendMsg("Bot is not a mod v.v")
+    
+  #get profile
+  if message.lower().startswith("-prof") and args != "":
+    print("http://"+args+".chatango.com")
+    stuff=str(urlreq.urlopen("http://"+args+".chatango.com").read().decode("utf-8"))
+    crap, age = stuff.split('<span class="profile_text"><strong>Age:</strong></span></td><td><span class="profile_text">', 1)
+    age, crap = age.split('<br /></span>', 1)
+    crap, gender = stuff.split('<span class="profile_text"><strong>Gender:</strong></span></td><td><span class="profile_text">', 1)
+    gender, crap = gender.split(' <br /></span>', 1)
+    if gender == 'M':
+        gender = 'Male'
+    elif gender == 'F':
+        gender = 'Female'
+    else:
+        gender = '?'
+    crap, location = stuff.split('<span class="profile_text"><strong>Location:</strong></span></td><td><span class="profile_text">', 1)
+    location, crap = location.split(' <br /></span>', 1)
+    crap,mini=stuff.split("<span class=\"profile_text\"><!-- google_ad_section_start -->",1)
+    mini,crap=mini.split("<!-- google_ad_section_end --></span>",1)
+    mini=mini.replace("\\r"," ")
+    picture = '<a href="http://fp.chatango.com/profileimg/' + args[0] + '/' + args[1] + '/' + args + '/full.jpg" style="z-index:59" target="_blank">http://fp.chatango.com/profileimg/' + args[0] + '/' + args[1] + '/' + args + '/full.jpg</a>'
+    prodata = '<u>http://' + args + '.chatango.com </u>'+ '<a href="http://chatango.com/fullpix?' + args + '" target="_blank"> Age: '+ age + '<br/> Gender: ' + gender +' <br/> Location: ' +  location + ' <br/> BG ENDS : '+getbgtime(args) + '</a>' + picture + "<br/> MINI PROFILE : <br/> "+ mini
+    sendMsg(prodata)
+
+
 
 #############
 ## Connect ##

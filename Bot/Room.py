@@ -14,6 +14,7 @@
 ## Imports ########
 
 import sys
+import traceback
 if sys.version_info[0] > 2:
   import urllib.request as urlreq
 else:
@@ -34,11 +35,12 @@ import datetime
 ## Variables #####
 
 uid = ''
-username = 'mizukebot'
+botname = 'mizukebot'
 password = ''
 host = ''
 port = 5228;
-roomName = "digitalmasterminds69"
+roomname = "digitalmasterminds69"
+botowner = "digitalclay"
 
 sv10=110
 sv12=116
@@ -71,41 +73,49 @@ fontSize = "14";
 fontColor = "000";
 nameColor = "093";
 
-#################
-# Play Sound ####
-activesound = True
-def playSound(soundtype):
-  if activesound:
-    if soundtype=="msg":
-      return winsound.Beep(1000, 100)
-    elif soundtype=="error":
-      return winsound.Beep(1000, 300)
-    elif soundtype=="info":
-      return winsound.Beep(2000, 100)
-    else:
-      return print("[ERROR] SOUND ERROR")
-  else:
-    return 
 
 
+#############################
+# Print Bot Info ############
+#############################
 print("MizukeBot Version - 9.0.0 New Code Base")
 
+
+
+##################################
+## Files and logs  ###############
 
 # Room Log
 filename = "roomlog.txt"
 roomlog =[]
 f = open(filename, 'r')
 print("[INFO]LOADING ROOMLOG")
+for line in f.readlines():
+  if len(line.strip())>0: roomlog.append(line.strip())
+f.close()
+
+# Error Log
+filename = "errorlog.txt"
+errorlog =[]
+f = open(filename, 'r')
+print("[INFO]LOADING ERRORLOG")
+for line in f.readlines():
+  if len(line.strip())>0: errorlog.append(line.strip())
+f.close()
+
+
+# Masters
+masters = []
+f = open("masters.txt", "r") 
+print("[INFO]LOADING MASTERS")
 for name in f.readlines():
-  if len(name.strip())>0: roomlog.append(name.strip())
+  if len(name.strip())>0: masters.append(name.strip())
 f.close()
 
 
  
-##############################
-#BG Time Left Function
-##############################
-
+########################
+#BG Time Left Function##
 def getbgtime(name):
     l1=str(name)[0]
     l2=str(name)[1]
@@ -120,9 +130,40 @@ def getbgtime(name):
     return timeLeft
 
 
+#################
+# Play Sound ####
+activesound = True
+def playSound(soundtype):
+  if activesound:
+    if soundtype=="msg":
+      return winsound.Beep(1000, 100)
+    elif soundtype=="error":
+      return winsound.Beep(1000, 300)
+    else:
+      return print("[ERROR] SOUND ERROR : "+soundtype+" : Is not defined")
+  else:
+    return 
+
+
+########################
+# Error Handler ########
+def onError(info):
+    exc_type, exc_value, exc_traceback = info
+    etime = time.strftime("%d/%m/%y- %H:%M:%S", time.localtime(time.time()))
+    error = repr(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    toPrint = "[Room][Error][%s][%s]" % (etime, error)
+    print(toPrint)
+    errorlog.append(toPrint)
+    f = open("errorlog.txt", "w")
+    f.write("\n".join(errorlog))
+    f.close()
+    playSound("error")
+    if(running):
+      sendMsg("[Error] "+str(info))
+
+
 #####################
 ## Connect To Room ##
-
 def connect():
 
     setRandomFont(True)
@@ -130,7 +171,7 @@ def connect():
     uid = genUID()
     print(uid)
     
-    host = getServerId(roomName)
+    host = getServerId(roomname)
     print(host)
     
     global sock            
@@ -192,86 +233,60 @@ def getServerId(name):
 ###########################
 ## Read From Server Loop ##
 def run():
-  
     global running
-    running = True
-    
+    running = True    
     global quiet
     quiet = False
-    
     while running:
-      
         if(writeLock == True):
           print("[Room] Error : Can't read while writing to server!!! ")
           continue
-        
         if(quiet == True):
-          print("[Room] Quiet "+quiet)
+          print("[Room] Bot Is Set To Quiet!!!")
           continue
-        
         msg = str(sock.recv(1024).decode("utf-8"))
-        
-        #try:
-        if msg.startswith("b:"):
-          onMsgRcv(cleanMsg(msg))
-
-        if msg.startswith("ok:"):
-          onConnectRcv(msg)
-          
-        if msg.startswith("denied"):
-          onConnectFailRcv()
-          
-        if "inited" in msg:
-          onInitRcv(msg)
-          
-        if msg.startswith("n:"):
-          onCountRcv(msg)
-          
-        if msg.startswith("mods:"):
-          onModsRcv(msg)
-          
-        if msg.startswith("participant:0"):
-          onLeaveRcv(msg)
-          
-        if msg.startswith("participant:1"):
-          onJoinRcv(msg)
-          
-        if msg.startswith("g_participants:"):
-          onRoomNamesRcv(msg)
-          
-        if msg.startswith("blocked:"):
-          onBanRcv(msg)
-          
-        if msg.startswith("unblocked:"):
-          onUnbanRcv(msg)
-
-        if msg.startswith("i:"):
-          onPastMsgRcv(msg)
-
-        if msg.startswith("blocklist:"):
-          onBlocklistRcv(msg)
-
-        if msg.startswith("delete:"):
-          onMsgDeleteRcv(msg)
-
-        if msg.startswith("show_fw:"):
-          onFloodWarningRcv(msg)
-
-        if msg.startswith("show_tb:"):
-          onFloodBanRcv(msg)
-
-        if msg.startswith("tb:"):
-          onFloodBanRepeatRcv(msg)
-
-        if msg.startswith("premium:"):
-          onPremiumRcv(msg)
-
-        if msg.startswith("deleteall:"):
-          onAllMsgDeleteRcv(msg)
-
-        #except Exception:
-            #print(str(sys.exc_info()))
-            #continue
+        try:
+          if msg.startswith("b:"):
+            onMsgRcv(cleanMsg(msg))
+          if msg.startswith("ok:"):
+            onConnectRcv(msg)
+          if msg.startswith("denied"):
+            onConnectFailRcv()
+          if "inited" in msg:
+            onInitRcv(msg)
+          if msg.startswith("n:"):
+            onCountRcv(msg)
+          if msg.startswith("mods:"):
+            onModsRcv(msg)
+          if msg.startswith("participant:0"):
+            onLeaveRcv(msg)
+          if msg.startswith("participant:1"):
+            onJoinRcv(msg)
+          if msg.startswith("g_participants:"):
+            onRoomNamesRcv(msg)
+          if msg.startswith("blocked:"):
+            onBanRcv(msg)  
+          if msg.startswith("unblocked:"):
+            onUnbanRcv(msg)
+          if msg.startswith("i:"):
+            onPastMsgRcv(msg)
+          if msg.startswith("blocklist:"):
+            onBlocklistRcv(msg)
+          if msg.startswith("delete:"):
+            onMsgDeleteRcv(msg)
+          if msg.startswith("show_fw:"):
+            onFloodWarningRcv(msg)
+          if msg.startswith("show_tb:"):
+            onFloodBanRcv(msg)
+          if msg.startswith("tb:"):
+            onFloodBanRepeatRcv(msg)
+          if msg.startswith("premium:"):
+            onPremiumRcv(msg)
+          if msg.startswith("deleteall:"):
+            onAllMsgDeleteRcv(msg)
+        except Exception:
+          onError(sys.exc_info())
+          continue
 
 
 
@@ -292,7 +307,7 @@ def cleanMsg(msg):
 ##############################
 ## Recieve Cmds From Server ##
 
-#Msg
+#On Message
 def onMsgRcv(msg):
 
   playSound("msg")
@@ -302,7 +317,7 @@ def onMsgRcv(msg):
   message=data[10]
   ip = ""
 
-  if username in mods:
+  if botname in mods:
     roomlog.append("[%s][IP: %s] %s: %s" % (time.strftime("%d/%m/%y- %H:%M:%S", time.localtime(time.time())),data[7], sender.capitalize(), message))
     print("[Room][%s][IP: %s] %s: %s" % (time.strftime("%d/%m/%y- %H:%M:%S", time.localtime(time.time())),data[7], sender.capitalize(), message))
     ip = data[7]
@@ -314,15 +329,23 @@ def onMsgRcv(msg):
   f = open("roomlog.txt", "w")
   f.write("\n".join(roomlog))
   f.close()
+  f = open("masters.txt", "w")
+  f.write("\n".join(roomlog))
+  f.close()
+  f = open("errorlog.txt", "w")
+  f.write("\n".join(errorlog))
+  f.close()
   
   checkCommands(sender,message,ip)
+
+
 
 #On Connect
 def onConnectRcv(msg):
   if ":" in msg:
-    global owner
-    owner = msg.split(":")[1]
-    print("[Room] Owner : "+owner)
+    global roomowner
+    roomowner = msg.split(":")[1]
+    print("[Room] Owner : "+roomowner)
   else:
     return
   if "M:" not in msg:
@@ -507,14 +530,14 @@ def sendToServer(message , usePrint):
       continue
     writeLock = False
   except Exception:
-    print("error in write")
+    onError(sys.exc_info())
     writeLock = False
     return
 
 
 #Login
 def sendLogin():
-  sendToServer("bauth:"+roomName+":"+ uid+":"+ username+":"+ password+"\x00" , True)
+  sendToServer("bauth:"+roomname+":"+ uid+":"+ botname+":"+ password+"\x00" , True)
 
 #Message######################################
 def sendMsg(msg):
@@ -604,8 +627,13 @@ def clearAllMsg():
 ############################
 ## Check Bot Commands ######
 def checkCommands(sender,message,ip):
+
+  #check for command prefix
+  if message.startswith("-") != True:
+    return
+  
   message = re.sub('\x00', '', message)
-  print(message.split(" "))
+
   cmd = ""
   args = ""
 
@@ -618,32 +646,33 @@ def checkCommands(sender,message,ip):
 
   cmd = cmd.lower()
   args = args.lower()
-  print("cmd: "+cmd+ " || Args : "+args)
+
+  print(cmd+ ":" +args+";")
   
   #commannd list
-  if message.lower().startswith("-cmd"):
+  if cmd=="-cmd":
     sendMsg("My commands are  -mods , -count , -users , -bans , -quiet "
-            + ", -addmod , -removemod , -prof "
+            + ", -addmod , -removemod , -prof , -eval, -exec, -master"
             + ", -sound , -bgleft , -online , -myip , -ban , -unban")
 
   #mods
-  if message.lower().startswith("-mods"):
-    sendMsg("Owner - "+ owner + " Mods - " + str(mods))
+  if cmd=="-mods":
+    sendMsg("Owner - "+ roomowner + " Mods - " + str(mods))
 
   #count
-  if message.lower().startswith("-count"):
+  if cmd=="-count":
     sendMsg("Room Count - "+str(count))
 
   #users
-  if message.lower().startswith("-users"):
+  if cmd=="-users":
     sendMsg("Users - "+str(users))
 
   #bans
-  if message.lower().startswith("-bans"):
+  if cmd=="-bans":
     sendMsg("Ban List - "+str(banList))
 
   #quiet
-  if message.lower().startswith("-quiet"):
+  if cmd=="-quiet":
     if quiet == True :
       setQuiet(False)
     else:
@@ -651,15 +680,15 @@ def checkCommands(sender,message,ip):
     sendMsg("Quiet - "+quiet)
 
   #add Mod
-  if message.lower().startswith("-addmod") and username == owner:
-    addMod(message.split(" ")[1])
+  if cmd=="-addmod" and botname == roomowner:
+    addMod(args)
 
   #remove mod
-  if message.lower().startswith("-removemod") and username == owner:
-    removeMod(message.split(" ")[1])
+  if cmd=="-removemod" and botname == roomowner:
+    removeMod(args)
 
   #sound
-  if message.lower().startswith("-sound") and sender.lower() == "digitalclay":
+  if cmd=="-sound" and sender.lower() == "digitalclay":
     global activesound
     if activesound == True:
       activesound = False
@@ -668,11 +697,11 @@ def checkCommands(sender,message,ip):
     sendMsg("Sound set to : "+str(activesound))
 
   #get bg time left
-  if message.lower().startswith("-bgleft") and args != "":
+  if cmd=="-bgleft" and args != "":
     sendMsg('Your BG will end or has ended on : <FONT COLOR="#00ff00">'+getbgtime(message.split(" ")[1].lower())+"</FONT>")
 
   #check if user is online
-  if message.lower().startswith("-online") and args != "":
+  if cmd=="-online" and args != "":
     offline = None
     url = urlreq.urlopen("http://"+args+".chatango.com").read().decode()
     if not "buyer" in url:
@@ -691,14 +720,14 @@ def checkCommands(sender,message,ip):
 
 
   #get ip
-  if message.lower().startswith("-myip"):
-    if username in mods:
+  if cmd=="-myip":
+    if botname in mods:
       sendMsg("Your Ip is : "+ip)
     else:
       sendMsg("Bot is not a mod v.v")
     
   #get profile
-  if message.lower().startswith("-prof") and args != "":
+  if cmd=="-prof" and args != "":
     print("http://"+args+".chatango.com")
     stuff=str(urlreq.urlopen("http://"+args+".chatango.com").read().decode("utf-8"))
     crap, age = stuff.split('<span class="profile_text"><strong>Age:</strong></span></td><td><span class="profile_text">', 1)
@@ -721,7 +750,54 @@ def checkCommands(sender,message,ip):
     sendMsg(prodata)
 
 
+  #eval
+  if cmd == "-eval" and sender.lower()==botowner:
+    sendMsg(str(repr(eval(args))))
+
+  #exec
+  if cmd == "-exec" and sender.lower()==botowner:
+    sendMsg(str(repr(exec(args))))
+    
+  #masters || EXAMPLE -master add/remove name
+  if cmd == "master" and sender.lower()==botowner:
+    try:
+      if len(args) >= 3:
+        do, name = args.lower().split(" ", 1)
+
+        if do == "add":
+
+          if name in masters:
+            sendMsg("I would remove %s, but %s's already saved as one." % name, name)
+
+          else:
+            masters.append(name)
+            sendMsg("Okay, %s is added to the master database. Hope we play together <3")
+            print("[INFO] MASTER ADDED TO FILE")
+
+        elif do == "remove":
+
+          if name not in masters:
+            sendMsg("I would remove %s, but %s's already saved as one." % name, name)
+          else:
+            masters.remove(name)
+            sendMsg("GTFO my list sucka...You better not have done something wrong...or I'll come haunt you in your sleep.")
+            print("[INFO] MASTER REMOVED FROM FILE")
+
+        else:
+          sendMsg("o_o Wrong... EXAMPLE -master add/remove name")
+      else:
+        if len(permitted) == 0:
+          sendMsg("No masters saved in file... v_v", True)
+        else:
+          sendMsg("Masters : <b>"+str(len(masters))+"</b> ", True)
+    except Exception:
+      onError(sys.exc_info())
+
 
 #############
 ## Connect ##
-connect()
+try:
+  connect()
+except Exception:
+  onError(sys.exc_info())
+
